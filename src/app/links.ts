@@ -26,12 +26,10 @@ export const LINKS: LinkTile[] = [
   },
   {
     label: 'App Store',
-    detail: 'coming soon',
+    detail: 'paul-costa',
     logo: 'logos/app-store.svg',
     tint: '#e0703f',
-    // Once dosed is released: https://apps.apple.com/app/id6818039868 (the developer page needs the
-    // artist ID, which only appears on the public listing)
-    href: null,
+    href: 'https://apps.apple.com/developer/paul-costa/id6818039870',
   },
   {
     label: 'Google Play',
