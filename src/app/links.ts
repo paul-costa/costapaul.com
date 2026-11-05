@@ -52,4 +52,7 @@ export interface ProjectLink {
 }
 
 /** Public projects in the burger menu, shown with and without sign-in */
-export const PROJECTS: ProjectLink[] = [{ label: 'wedding.costa', url: 'https://wedding.costapaul.com', icon: 'favorite' }];
+export const PROJECTS: ProjectLink[] = [
+  { label: 'wedding.costa', url: 'https://wedding.costapaul.com', icon: 'favorite' },
+  { label: 'atm-finder', url: 'https://atm-finder.costapaul.com', icon: 'local_atm' },
+];
