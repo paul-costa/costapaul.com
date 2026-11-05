@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, inject, input, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 
 /**
@@ -10,13 +10,23 @@ import { DomSanitizer } from '@angular/platform-browser';
  * From https://costapaul.com, Chrome loads the tailnet address only after the visitor allowed
  * local network access for the site, and only eagerly: with loading="lazy" (Chrome 155) the iframe
  * stayed on about:blank. "local-network" is the newer name of "local-network-access"; both are set.
+ *
+ * A frame reports no load errors to its parent, so it stays invisible until its first height message (Chrome's
+ * error page would show otherwise), and a request of its own decides whether the monitor is unreachable. The
+ * height message is no such sign: Chrome holds it back while the frame is below the fold.
  */
+const PROBE_TIMEOUT_MS = 6000;
+
 @Component({
   selector: 'app-llm-frame',
-  template: `<iframe
+  template: `@if (unreachable()) {
+      <p class="hint">Only reachable from the tailnet. Turn on Tailscale and reload.</p>
+    }
+    <iframe
     #frame
     [src]="src()"
-    [style.height.px]="height() || 480"
+    [class.waiting]="!height()"
+    [style.height.px]="height() || (unreachable() ? 1 : 480)"
     title="LLM activity on costaserver"
     allow="local-network; local-network-access"
   ></iframe>`,
@@ -24,23 +34,35 @@ import { DomSanitizer } from '@angular/platform-browser';
     :host { display: block; }
     /* The monitor page declares no color-scheme (= light); a dark iframe would get an opaque white backdrop */
     iframe { display: block; width: 100%; border: 0; border-radius: var(--radius-child); color-scheme: light; transition: height 0.2s ease; }
+    iframe.waiting { opacity: 0; }
+    .hint { margin: 0; color: var(--muted); font-size: 14px; }
   `,
   host: { '(window:message)': 'resize($event)' },
 })
-export class LlmFrame {
+export class LlmFrame implements OnInit {
   readonly url = input.required<string>();
 
   protected readonly height = signal(0);
+  private readonly probeFailed = signal(false);
+  protected readonly unreachable = computed(() => this.probeFailed() && !this.height());
 
   private readonly frame = viewChild.required<ElementRef<HTMLIFrameElement>>('frame');
   private readonly sanitizer = inject(DomSanitizer);
 
-  // The URL comes from the admin-only Firestore document, not from user input
+  // The URL comes from /private/server.json behind Cloudflare Access, not from user input
   protected readonly src = computed(() => {
     const url = new URL(this.url());
     url.searchParams.set('embed', '1');
     return this.sanitizer.bypassSecurityTrustResourceUrl(url.toString());
   });
+
+  ngOnInit() {
+    fetch(new URL('api/summary', this.url()), {
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    }).catch(() => this.probeFailed.set(true));
+  }
 
   resize(event: MessageEvent) {
     if (event.origin !== new URL(this.url()).origin) return;
