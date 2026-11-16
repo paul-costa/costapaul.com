@@ -5,6 +5,7 @@ import { MatIcon } from '@angular/material/icon';
  * /private/router.json behind Cloudflare Access, written every 2 minutes on costaserver by router-card.timer
  * (scripts/server/router-card.py in the costaserver repo) from the UniFi Site Manager API. The router UI itself
  * cannot be framed (X-Frame-Options: SAMEORIGIN) and is reachable only at home, so the card shows numbers instead.
+ * No throughput: the UniFi Express reports download/upload as 0 to the cloud, so latency carries the 24 h line.
  */
 export interface RouterStatus {
   updated: string;
@@ -14,13 +15,11 @@ export interface RouterStatus {
   wan: {
     isp?: string | null;
     uptimePct: number | null;
-    issues: number;
-    down: number | null;
-    up: number | null;
     latency: number | null;
+    loss: number | null;
     at?: string | null;
   };
-  history: { t: string | null; down: number | null; up: number | null; latency: number | null }[];
+  history: { t: string | null; latency: number | null; maxLatency: number | null; loss: number | null }[];
   links: { label: string; url: string }[];
 }
 
@@ -47,17 +46,16 @@ const H = 40;
       <dl class="stats">
         <div><dt>Wi-Fi</dt><dd>{{ s.clients.wifi ?? '–' }}</dd></div>
         <div><dt>Wired</dt><dd>{{ s.clients.wired ?? '–' }}</dd></div>
-        <div><dt>Down</dt><dd>{{ s.wan.down ?? '–' }}<small> Mbit/s</small></dd></div>
-        <div><dt>Up</dt><dd>{{ s.wan.up ?? '–' }}<small> Mbit/s</small></dd></div>
         <div><dt>Latency</dt><dd>{{ s.wan.latency ?? '–' }}<small> ms</small></dd></div>
-        <div [class.bad]="s.wan.issues > 0"><dt>WAN uptime</dt><dd>{{ s.wan.uptimePct ?? '–' }}<small> %</small></dd></div>
+        <div [class.bad]="(s.wan.loss ?? 0) > 0"><dt>Loss</dt><dd>{{ s.wan.loss ?? '–' }}<small> %</small></dd></div>
+        <div [class.bad]="s.wan.uptimePct != null && s.wan.uptimePct < 100"><dt>WAN uptime</dt><dd>{{ s.wan.uptimePct ?? '–' }}<small> %</small></dd></div>
       </dl>
       @if (spark(); as p) {
         <svg class="spark" [attr.viewBox]="'0 0 ' + w + ' ' + h" preserveAspectRatio="none" aria-hidden="true">
           <path class="area" [attr.d]="p.area" />
           <path class="line" [attr.d]="p.line" />
         </svg>
-        <span class="caption">download, last 24 h (peak {{ p.max }} Mbit/s)</span>
+        <span class="caption">latency, last 24 h (peak {{ p.max }} ms){{ s.wan.isp ? ' · ' + s.wan.isp : '' }}</span>
       }
       <span class="updated" [class.stale]="stale()">updated {{ time(s.updated) }}{{ stale() ? ' – stale' : '' }}</span>
     </section>
@@ -74,7 +72,7 @@ const H = 40;
     .links a { display: inline-flex; align-items: center; gap: 4px; font: 400 12px/1 var(--mono); color: var(--faint); transition: color 0.2s ease; }
     .links a:hover { color: var(--text); }
     .links mat-icon { width: 16px; height: 16px; font-size: 16px; }
-    .stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 0; }
+    .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0; }
     dt { font: 400 11px/1 var(--mono); color: var(--faint); text-transform: lowercase; }
     dd { margin: 6px 0 0; font-size: 20px; color: var(--text); font-variant-numeric: tabular-nums; }
     small { font-size: 12px; color: var(--muted); }
@@ -99,9 +97,9 @@ export class RouterCard {
     return !!s && this.now() - Date.parse(s.updated) > STALE_MS;
   });
 
-  /** Download over the last 24 h as an SVG line and area, scaled to the peak */
+  /** Latency over the last 24 h as an SVG line and area, scaled to the peak */
   protected readonly spark = computed(() => {
-    const points = (this.status()?.history ?? []).map((p) => p.down).filter((v): v is number => v != null);
+    const points = (this.status()?.history ?? []).map((p) => p.latency).filter((v): v is number => v != null);
     if (points.length < 2) return null;
     const max = Math.max(...points, 1);
     const xy = points.map((v, i) => `${((i / (points.length - 1)) * W).toFixed(1)},${(H - (v / max) * (H - 2)).toFixed(1)}`);
