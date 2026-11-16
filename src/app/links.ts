@@ -33,12 +33,11 @@ export const LINKS: LinkTile[] = [
   },
   {
     label: 'Google Play',
-    detail: 'coming soon',
+    detail: 'paul-costa',
     logo: 'logos/google-play.svg',
     tint: '#2bb58a',
-    // dosed is in closed testing ("Alpha"), the developer page answers 404 until the first production
-    // release: then https://play.google.com/store/apps/dev?id=5655845316536750169
-    href: null,
+    // Play lists developers by their public name; the numeric dev?id= page needs a custom developer page
+    href: 'https://play.google.com/store/apps/developer?id=Paul+C.',
   },
 ];
 
