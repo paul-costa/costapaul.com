@@ -28,6 +28,10 @@
     <mat-icon class="go">north_east</mat-icon>
   </a>
 
+  @if (session.signedIn()) {
+    <app-router-card />
+  }
+
   @if (session.config()?.llmMonitorUrl; as url) {
     <section class="tile wide llm" style="--tint: #4ade80">
       <div class="llm-head">
@@ -38,9 +42,5 @@
       <!-- Details fold out inside the monitor's card, as on the costaserver dashboard -->
       <app-llm-frame [url]="url" />
     </section>
-  }
-
-  @if (session.signedIn()) {
-    <app-router-card />
   }
 </section>
