@@ -39,4 +39,8 @@
       <app-llm-frame [url]="url" />
     </section>
   }
+
+  @if (session.signedIn()) {
+    <app-router-card />
+  }
 </section>
